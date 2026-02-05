@@ -1,5 +1,6 @@
 const Task = require("../models/Task");
 const User = require("../models/User");
+const Submission = require("../models/Submission");
 
 exports.createTask = async (req, res) => {
   const { title, description, deadline, students } = req.body;
@@ -39,6 +40,17 @@ exports.getAllStudents = async (req, res) => {
   try {
     const students = await User.find({ role: "student" }).select("name email");
     res.json(students);
+  } catch {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getTaskSubmissions = async (req, res) => {
+  try {
+    const submissions = await Submission.find({
+      task: req.params.taskId,
+    }).populate("student", "name email");
+    res.json(submissions);
   } catch {
     res.status(500).json({ message: "Server error" });
   }
