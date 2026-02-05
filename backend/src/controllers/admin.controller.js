@@ -3,40 +3,22 @@ const bcrypt = require("bcryptjs");
 const Notification = require("../models/Notification");
 
 exports.addUser = async (req, res) => {
-  const { name, email, role } = req.body;
+  const { name, email, role, dept, rollNo, batch } = req.body;
 
-  if (!["student", "faculty"].includes(role)) {
-    return res.status(400).json({ message: "Invalid role" });
-  }
+  const tempPassword = "welcome123";
+  const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-  try {
-    const existing = await User.findOne({ email });
-    if (existing)
-      return res.status(400).json({ message: "User already exists" });
+  const user = await User.create({
+    name,
+    email,
+    role,
+    dept,
+    rollNo,
+    batch,
+    password: hashedPassword,
+  });
 
-    const tempPassword = "welcome123";
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
-
-    const user = await User.create({
-      name,
-      email,
-      role,
-      password: hashedPassword,
-    });
-
-    res.status(201).json({
-      message: "User created",
-      tempPassword,
-      user: {
-        id: user._id,
-        name: user.name,
-        email: user.email,
-        role: user.role,
-      },
-    });
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
-  }
+  res.status(201).json({ user, tempPassword });
 };
 
 exports.getAllUsers = async (req, res) => {

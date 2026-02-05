@@ -2,22 +2,22 @@ const mongoose = require("mongoose");
 
 const taskSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true },
+    title: String,
     description: String,
-    deadline: { type: Date, required: true },
 
     faculty: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
-      required: true,
     },
 
-    students: [
-      {
-        type: mongoose.Schema.Types.ObjectId,
-        ref: "User",
-      },
-    ],
+    targetDept: String,
+    targetBatch: String,
+    targetRollRange: {
+      start: String,
+      end: String,
+    },
+
+    deadline: Date,
   },
   { timestamps: true },
 );

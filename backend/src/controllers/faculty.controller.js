@@ -3,25 +3,26 @@ const User = require("../models/User");
 const Submission = require("../models/Submission");
 
 exports.createTask = async (req, res) => {
-  const { title, description, deadline, students } = req.body;
+  const {
+    title,
+    description,
+    deadline,
+    targetDept,
+    targetBatch,
+    targetRollRange,
+  } = req.body;
 
-  if (!students || students.length === 0) {
-    return res.status(400).json({ message: "No students selected" });
-  }
+  const task = await Task.create({
+    title,
+    description,
+    deadline,
+    faculty: req.user.id,
+    targetDept,
+    targetBatch,
+    targetRollRange,
+  });
 
-  try {
-    const task = await Task.create({
-      title,
-      description,
-      deadline,
-      faculty: req.user.id,
-      students,
-    });
-
-    res.status(201).json(task);
-  } catch {
-    res.status(500).json({ message: "Server error" });
-  }
+  res.status(201).json(task);
 };
 
 exports.getMyTasks = async (req, res) => {
