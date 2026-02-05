@@ -7,12 +7,15 @@ const AdminDashboard = () => {
   const [users, setUsers] = useState([]);
 
   useEffect(() => {
+    if (!auth?.token) return;
+
     axios
       .get("http://localhost:5000/api/admin/users", {
         headers: { Authorization: `Bearer ${auth.token}` },
       })
-      .then((res) => setUsers(res.data));
-  }, []);
+      .then((res) => setUsers(res.data))
+      .catch(console.error);
+  }, [auth.token]);
 
   return (
     <>

@@ -1,7 +1,9 @@
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import Login from "./pages/Login";
 import AdminDashboard from "./pages/AdminDashboard";
-import ProtectedRoute from "../src/components/ProtectedRoute";
+import ProtectedRoute from "./components/ProtectedRoutes";
+import FacultyDashboard from "./pages/FacultyDashboard";
+import StudentDashboard from "./pages/StudentDashboard";
 
 /* 
   NOTE:
@@ -34,6 +36,23 @@ function App() {
 
         {/* Catch all */}
         <Route path="*" element={<h2>Page Not Found</h2>} />
+        <Route
+          path="/faculty"
+          element={
+            <ProtectedRoute role="faculty">
+              <FacultyDashboard />
+            </ProtectedRoute>
+          }
+        />
+
+        <Route
+          path="/student"
+          element={
+            <ProtectedRoute role="student">
+              <StudentDashboard />
+            </ProtectedRoute>
+          }
+        />
       </Routes>
     </BrowserRouter>
   );
