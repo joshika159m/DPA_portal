@@ -13,48 +13,46 @@ import StudentDashboard from "./pages/StudentDashboard";
 
 function App() {
   return (
-    <BrowserRouter>
-      <Routes>
-        {/* Default route */}
-        <Route path="/" element={<Navigate to="/login" />} />
+    <Routes>
+      {/* Default route */}
+      <Route path="/" element={<Navigate to="/login" />} />
 
-        {/* Login */}
-        <Route path="/login" element={<Login />} />
+      {/* Login */}
+      <Route path="/login" element={<Login />} />
 
-        {/* Admin Dashboard (Protected) */}
-        <Route
-          path="/admin"
-          element={
-            <ProtectedRoute role="admin">
-              <AdminDashboard />
-            </ProtectedRoute>
-          }
-        />
+      {/* Admin Dashboard (Protected) */}
+      <Route
+        path="/admin"
+        element={
+          <ProtectedRoute role="admin">
+            <AdminDashboard />
+          </ProtectedRoute>
+        }
+      />
 
-        {/* Unauthorized Access */}
-        <Route path="/unauthorized" element={<h2>Access Denied</h2>} />
+      {/* Unauthorized Access */}
+      <Route path="/unauthorized" element={<h2>Access Denied</h2>} />
 
-        {/* Catch all */}
-        <Route path="*" element={<h2>Page Not Found</h2>} />
-        <Route
-          path="/faculty"
-          element={
-            <ProtectedRoute role="faculty">
-              <FacultyDashboard />
-            </ProtectedRoute>
-          }
-        />
+      {/* Catch all */}
+      <Route path="*" element={<h2>Page Not Found</h2>} />
+      <Route
+        path="/faculty"
+        element={
+          <ProtectedRoute role="faculty">
+            <FacultyDashboard />
+          </ProtectedRoute>
+        }
+      />
 
-        <Route
-          path="/student"
-          element={
-            <ProtectedRoute role="student">
-              <StudentDashboard />
-            </ProtectedRoute>
-          }
-        />
-      </Routes>
-    </BrowserRouter>
+      <Route
+        path="/student"
+        element={
+          <ProtectedRoute role="student">
+            <StudentDashboard />
+          </ProtectedRoute>
+        }
+      />
+    </Routes>
   );
 }
 
