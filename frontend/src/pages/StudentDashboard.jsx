@@ -4,50 +4,61 @@ import { AuthContext } from "../context/AuthContext";
 
 const StudentDashboard = () => {
   const { auth } = useContext(AuthContext);
+
   const [tasks, setTasks] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const headers = {
+    Authorization: `Bearer ${auth?.token}`,
+  };
+
+  /* ---------------- FETCH TASKS ---------------- */
   const fetchTasks = async () => {
-    try {
-      const res = await axios.get("http://localhost:5000/api/student/tasks", {
-        headers: { Authorization: `Bearer ${auth.token}` },
-      });
-      setTasks(res.data);
-    } catch (err) {
-      console.error("Failed to fetch tasks", err);
-    } finally {
-      setLoading(false);
-    }
+    const res = await axios.get("http://localhost:5000/api/student/tasks", {
+      headers,
+    });
+    setTasks(res.data);
+  };
+
+  /* ---------------- FETCH SUBMISSIONS ---------------- */
+  const fetchSubmissions = async () => {
+    const res = await axios.get("http://localhost:5000/api/submission/my", {
+      headers,
+    });
+    setSubmissions(res.data);
   };
 
   useEffect(() => {
-    if (auth?.token) fetchTasks();
+    if (!auth?.token) return;
+
+    Promise.all([fetchTasks(), fetchSubmissions()]).finally(() =>
+      setLoading(false),
+    );
   }, [auth?.token]);
 
+  /* ---------------- SUBMIT PROJECT ---------------- */
   const submitProject = async (taskId) => {
     const link = prompt("Enter GitHub / Drive link");
-
-    if (!link || link.trim() === "") {
-      alert("Submission link cannot be empty");
-      return;
-    }
+    if (!link) return;
 
     try {
       await axios.post(
         "http://localhost:5000/api/submission/submit",
         { taskId, fileUrl: link },
-        {
-          headers: { Authorization: `Bearer ${auth.token}` },
-        },
+        { headers },
       );
 
-      alert("Project submitted successfully");
-      fetchTasks(); // refresh task list
-    } catch (err) {
-      console.error(err);
+      alert("Project submitted");
+      fetchSubmissions(); // refresh submissions only
+    } catch {
       alert("Submission failed");
     }
   };
+
+  /* ---------------- CHECK IF TASK SUBMITTED ---------------- */
+  const getSubmissionForTask = (taskId) =>
+    submissions.find((s) => s.task._id === taskId);
 
   if (loading) return <p>Loading...</p>;
 
@@ -57,24 +68,44 @@ const StudentDashboard = () => {
 
       {tasks.length === 0 && <p>No tasks assigned</p>}
 
-      {tasks.map((t) => (
-        <div
-          key={t._id}
-          style={{
-            border: "1px solid #ccc",
-            padding: "10px",
-            marginBottom: "10px",
-          }}
-        >
-          <h4>{t.title}</h4>
-          <p>{t.description}</p>
-          <p>
-            <strong>Deadline:</strong> {new Date(t.deadline).toDateString()}
-          </p>
+      {tasks.map((task) => {
+        const submission = getSubmissionForTask(task._id);
 
-          <button onClick={() => submitProject(t._id)}>Submit Project</button>
-        </div>
-      ))}
+        return (
+          <div
+            key={task._id}
+            style={{
+              border: "1px solid #ccc",
+              padding: 10,
+              marginBottom: 10,
+            }}
+          >
+            <h4>{task.title}</h4>
+            <p>
+              <strong>Deadline:</strong>{" "}
+              {new Date(task.deadline).toDateString()}
+            </p>
+
+            {!submission && (
+              <button onClick={() => submitProject(task._id)}>
+                Submit Project
+              </button>
+            )}
+
+            {submission && (
+              <>
+                <p>Status: {submission.status}</p>
+                <p>Marks: {submission.marks ?? "Pending"}</p>
+                <p>Remarks: {submission.remarks ?? "Pending"}</p>
+
+                <a href={submission.fileUrl} target="_blank" rel="noreferrer">
+                  View Submitted Project
+                </a>
+              </>
+            )}
+          </div>
+        );
+      })}
     </>
   );
 };

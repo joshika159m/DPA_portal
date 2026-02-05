@@ -34,3 +34,33 @@ exports.getTaskSubmissions = async (req, res) => {
     res.status(500).json({ message: "Server error" });
   }
 };
+
+exports.reviewSubmission = async (req, res) => {
+  const { marks, remarks } = req.body;
+
+  try {
+    const submission = await Submission.findById(req.params.id);
+    if (!submission)
+      return res.status(404).json({ message: "Submission not found" });
+
+    submission.marks = marks;
+    submission.remarks = remarks;
+    submission.status = "reviewed";
+
+    await submission.save();
+    res.json(submission);
+  } catch {
+    res.status(500).json({ message: "Server error" });
+  }
+};
+
+exports.getMySubmissions = async (req, res) => {
+  try {
+    const submissions = await Submission.find({
+      student: req.user.id,
+    }).populate("task", "title deadline");
+    res.json(submissions);
+  } catch {
+    res.status(500).json({ message: "Server error" });
+  }
+};

@@ -7,13 +7,12 @@ const FacultyDashboard = () => {
 
   const [students, setStudents] = useState([]);
   const [tasks, setTasks] = useState([]);
+  const [submissions, setSubmissions] = useState([]);
+  const [activeTaskId, setActiveTaskId] = useState(null);
 
   const [title, setTitle] = useState("");
   const [deadline, setDeadline] = useState("");
   const [selectedStudents, setSelectedStudents] = useState([]);
-
-  const [submissions, setSubmissions] = useState([]);
-  const [activeTaskId, setActiveTaskId] = useState(null);
 
   const headers = {
     Authorization: `Bearer ${auth?.token}`,
@@ -30,13 +29,16 @@ const FacultyDashboard = () => {
   }, [auth]);
 
   /* ---------------- FETCH TASKS ---------------- */
+  const loadTasks = async () => {
+    const res = await axios.get("http://localhost:5000/api/faculty/tasks", {
+      headers,
+    });
+    setTasks(res.data);
+  };
+
   useEffect(() => {
     if (!auth?.token) return;
-
-    axios
-      .get("http://localhost:5000/api/faculty/tasks", { headers })
-      .then((res) => setTasks(res.data))
-      .catch(() => alert("Failed to load tasks"));
+    loadTasks();
   }, [auth]);
 
   /* ---------------- CREATE TASK ---------------- */
@@ -62,21 +64,37 @@ const FacultyDashboard = () => {
     setDeadline("");
     setSelectedStudents([]);
 
-    // reload tasks
-    const res = await axios.get("http://localhost:5000/api/faculty/tasks", {
-      headers,
-    });
-    setTasks(res.data);
+    loadTasks();
   };
 
   /* ---------------- VIEW SUBMISSIONS ---------------- */
   const viewSubmissions = async (taskId) => {
     const res = await axios.get(
       `http://localhost:5000/api/submission/task/${taskId}`,
-      { headers: { Authorization: `Bearer ${auth.token}` } },
+      { headers },
     );
     setActiveTaskId(taskId);
     setSubmissions(res.data);
+  };
+
+  /* ---------------- REVIEW SUBMISSION (STEP 5) ---------------- */
+  const reviewSubmission = async (submissionId) => {
+    const marks = prompt("Enter marks");
+    if (marks === null) return;
+
+    const remarks = prompt("Enter remarks");
+    if (remarks === null) return;
+
+    await axios.put(
+      `http://localhost:5000/api/submission/review/${submissionId}`,
+      { marks, remarks },
+      { headers },
+    );
+
+    alert("Submission reviewed");
+
+    // reload submissions
+    viewSubmissions(activeTaskId);
   };
 
   return (
@@ -137,7 +155,7 @@ const FacultyDashboard = () => {
 
       <hr />
 
-      {/* ---------- SUBMISSIONS ---------- */}
+      {/* ---------- SUBMISSIONS + REVIEW ---------- */}
       {activeTaskId && (
         <>
           <h3>Submissions</h3>
@@ -145,12 +163,27 @@ const FacultyDashboard = () => {
           {submissions.length === 0 && <p>No submissions yet</p>}
 
           {submissions.map((sub) => (
-            <div key={sub._id} style={{ marginBottom: 10 }}>
+            <div
+              key={sub._id}
+              style={{
+                border: "1px solid #aaa",
+                padding: 10,
+                marginBottom: 10,
+              }}
+            >
               <strong>{sub.student.name}</strong> <br />
               Status: {sub.status} <br />
-              <a href={sub.fileUrl} target="_blank">
+              Marks: {sub.marks ?? "Not graded"} <br />
+              Remarks: {sub.remarks ?? "Not reviewed"} <br />
+              <a href={sub.fileUrl} target="_blank" rel="noreferrer">
                 View Project
               </a>
+              <br />
+              {sub.status !== "reviewed" && (
+                <button onClick={() => reviewSubmission(sub._id)}>
+                  Review Submission
+                </button>
+              )}
             </div>
           ))}
         </>
