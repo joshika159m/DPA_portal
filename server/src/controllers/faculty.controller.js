@@ -87,3 +87,37 @@ exports.getFacultyOverview = async (req, res) => {
     res.status(500).json({ message: "Failed to load overview" });
   }
 };
+
+const User = require("../models/User");
+
+/* GET STUDENTS BY FILTER */
+exports.getStudentsByFilter = async (req, res) => {
+  try {
+    const { dept, batch } = req.query;
+
+    const filter = { role: "STUDENT" };
+
+    if (dept) filter.dept = dept;
+    if (batch) filter.batch = batch;
+
+    const students = await User.find(filter).select("name rollNo dept batch");
+
+    res.json(students);
+  } catch (err) {
+    res.status(500).json({ message: "Failed to fetch students" });
+  }
+};
+
+/* GET DEPT + BATCH LIST */
+exports.getFilterData = async (req, res) => {
+  try {
+    const students = await User.find({ role: "STUDENT" });
+
+    const depts = [...new Set(students.map((s) => s.dept))];
+    const batches = [...new Set(students.map((s) => s.batch))];
+
+    res.json({ depts, batches });
+  } catch {
+    res.status(500).json({ message: "Failed to load filters" });
+  }
+};

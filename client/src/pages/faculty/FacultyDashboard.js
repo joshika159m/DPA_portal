@@ -8,51 +8,71 @@ const FacultyDashboard = () => {
   const navigate = useNavigate();
 
   const [submissions, setSubmissions] = useState([]);
+  const [students, setStudents] = useState([]);
+  const [deptSuggestions, setDeptSuggestions] = useState([]);
+  const [batchSuggestions, setBatchSuggestions] = useState([]);
+
   const [dept, setDept] = useState("");
   const [batch, setBatch] = useState("");
+  const [selectedStudents, setSelectedStudents] = useState([]);
 
   const [task, setTask] = useState({
     title: "",
     description: "",
-    targetDept: "",
-    targetBatch: "",
-    from: "",
-    to: "",
     deadline: "",
   });
 
-  /* LOAD SUBMISSIONS */
+  /* LOAD OVERVIEW */
   const loadOverview = async () => {
-    try {
-      const res = await api.get("/faculty/overview");
-      setSubmissions(res.data.submissions || []);
-    } catch {
-      console.log("Overview load failed");
-    }
+    const res = await api.get("/faculty/overview");
+    setSubmissions(res.data.submissions || []);
+  };
+
+  /* LOAD FILTER DATA */
+  const loadFilters = async () => {
+    const res = await api.get("/faculty/filter-data");
+    setDeptSuggestions(res.data.depts);
+    setBatchSuggestions(res.data.batches);
   };
 
   useEffect(() => {
-    if (user?.role === "FACULTY") loadOverview();
+    if (user?.role === "FACULTY") {
+      loadOverview();
+      loadFilters();
+    }
   }, [user]);
 
-  /* AUTO REFRESH */
+  /* LOAD STUDENTS WHEN FILTER CHANGES */
   useEffect(() => {
-    const interval = setInterval(loadOverview, 5000);
-    return () => clearInterval(interval);
-  }, []);
+    const loadStudents = async () => {
+      if (!dept && !batch) {
+        setStudents([]);
+        return;
+      }
+
+      const res = await api.get("/faculty/students", {
+        params: { dept, batch },
+      });
+
+      setStudents(res.data);
+    };
+
+    loadStudents();
+  }, [dept, batch]);
+
+  /* TOGGLE STUDENT */
+  const toggleStudent = (id) => {
+    setSelectedStudents((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
+    );
+  };
 
   /* SAVE MARKS */
   const saveMarks = async (submissionId, marks) => {
-    try {
-      await api.put(`/faculty/grade/${submissionId}`, { marks });
-      alert("Marks saved");
-      loadOverview();
-    } catch {
-      alert("Failed to save marks");
-    }
+    await api.put(`/faculty/grade/${submissionId}`, { marks });
+    loadOverview();
   };
 
-  /* UPDATE MARKS INPUT */
   const handleMarksChange = (id, value) => {
     setSubmissions((prev) =>
       prev.map((s) => (s._id === id ? { ...s, marks: value } : s)),
@@ -69,42 +89,32 @@ const FacultyDashboard = () => {
   /* CREATE TASK */
   const createTask = async () => {
     if (!task.deadline) return alert("Deadline required");
+    if (selectedStudents.length === 0) return alert("Select students");
 
-    try {
-      await api.post("/faculty/task", {
-        title: task.title,
-        description: task.description,
-        targetDept: task.targetDept ? [task.targetDept] : [],
-        targetBatch: task.targetBatch ? [task.targetBatch] : [],
-        targetRollRange:
-          task.from && task.to ? { from: task.from, to: task.to } : null,
-        deadline: task.deadline,
-      });
+    await api.post("/faculty/task", {
+      ...task,
+      studentIds: selectedStudents,
+    });
 
-      alert("Task created");
+    alert("Task created");
 
-      setTask({
-        title: "",
-        description: "",
-        targetDept: "",
-        targetBatch: "",
-        from: "",
-        to: "",
-        deadline: "",
-      });
-
-      loadOverview();
-    } catch {
-      alert("Failed to create task");
-    }
+    setTask({ title: "", description: "", deadline: "" });
+    setSelectedStudents([]);
   };
 
-  /* FILTER */
-  const filteredRows = submissions.filter(
-    (sub) =>
-      (!dept || sub.studentId?.dept === dept) &&
-      (!batch || sub.studentId?.batch === batch),
-  );
+  const [rollFrom, setRollFrom] = useState("");
+  const [rollTo, setRollTo] = useState("");
+
+  const visibleStudents = students.filter((s) => {
+    if (!rollFrom && !rollTo) return true;
+
+    const roll = Number(s.rollNo);
+
+    if (rollFrom && roll < Number(rollFrom)) return false;
+    if (rollTo && roll > Number(rollTo)) return false;
+
+    return true;
+  });
 
   return (
     <div className="container mt-3">
@@ -132,33 +142,79 @@ const FacultyDashboard = () => {
         onChange={(e) => setTask({ ...task, description: e.target.value })}
       />
 
+      {/* DEPT SUGGESTION */}
       <input
+        list="deptList"
         className="form-control mb-2"
         placeholder="Department"
-        value={task.targetDept}
-        onChange={(e) => setTask({ ...task, targetDept: e.target.value })}
+        value={dept}
+        onChange={(e) => setDept(e.target.value)}
       />
+      <datalist id="deptList">
+        {deptSuggestions.map((d) => (
+          <option key={d} value={d} />
+        ))}
+      </datalist>
 
+      {/* BATCH SUGGESTION */}
       <input
+        list="batchList"
         className="form-control mb-2"
         placeholder="Batch"
-        value={task.targetBatch}
-        onChange={(e) => setTask({ ...task, targetBatch: e.target.value })}
+        value={batch}
+        onChange={(e) => setBatch(e.target.value)}
       />
+      <datalist id="batchList">
+        {batchSuggestions.map((b) => (
+          <option key={b} value={b} />
+        ))}
+      </datalist>
 
-      <input
-        className="form-control mb-2"
-        placeholder="Roll From"
-        value={task.from}
-        onChange={(e) => setTask({ ...task, from: e.target.value })}
-      />
+      <div className="row mb-2">
+        <div className="col">
+          <input
+            className="form-control"
+            placeholder="Roll From"
+            value={rollFrom}
+            onChange={(e) => setRollFrom(e.target.value)}
+          />
+        </div>
 
-      <input
-        className="form-control mb-2"
-        placeholder="Roll To"
-        value={task.to}
-        onChange={(e) => setTask({ ...task, to: e.target.value })}
-      />
+        <div className="col">
+          <input
+            className="form-control"
+            placeholder="Roll To"
+            value={rollTo}
+            onChange={(e) => setRollTo(e.target.value)}
+          />
+        </div>
+      </div>
+
+      {/* STUDENT CHECKBOX LIST */}
+      {(dept || batch) && (
+        <div className="card p-3 mb-3">
+          <h5>Select Students</h5>
+          <button
+            className="btn btn-secondary mb-2"
+            onClick={() =>
+              setSelectedStudents(visibleStudents.map((s) => s._id))
+            }
+          >
+            Select Visible
+          </button>
+
+          {visibleStudents.map((s) => (
+            <div key={s._id}>
+              <input
+                type="checkbox"
+                checked={selectedStudents.includes(s._id)}
+                onChange={() => toggleStudent(s._id)}
+              />{" "}
+              {s.name} ({s.rollNo})
+            </div>
+          ))}
+        </div>
+      )}
 
       <input
         type="datetime-local"
@@ -174,25 +230,6 @@ const FacultyDashboard = () => {
       {/* SUBMISSIONS */}
       <h4 className="mt-5">Student Submissions</h4>
 
-      <div className="row mb-3">
-        <div className="col">
-          <input
-            className="form-control"
-            placeholder="Filter by Dept"
-            value={dept}
-            onChange={(e) => setDept(e.target.value)}
-          />
-        </div>
-        <div className="col">
-          <input
-            className="form-control"
-            placeholder="Filter by Batch"
-            value={batch}
-            onChange={(e) => setBatch(e.target.value)}
-          />
-        </div>
-      </div>
-
       <table className="table table-bordered">
         <thead>
           <tr>
@@ -207,7 +244,7 @@ const FacultyDashboard = () => {
           </tr>
         </thead>
         <tbody>
-          {filteredRows.map((sub) => (
+          {submissions.map((sub) => (
             <tr key={sub._id}>
               <td>{sub.studentId?.name}</td>
               <td>{sub.studentId?.dept}</td>
@@ -229,7 +266,6 @@ const FacultyDashboard = () => {
                   value={sub.marks || ""}
                   onChange={(e) => handleMarksChange(sub._id, e.target.value)}
                 />
-
                 <button
                   className="btn btn-success mt-1"
                   onClick={() => saveMarks(sub._id, sub.marks)}
