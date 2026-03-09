@@ -9,13 +9,16 @@ const StudentDashboard = () => {
 
   const [tasks, setTasks] = useState([]);
   const [submissions, setSubmissions] = useState([]);
+
   const [activeTask, setActiveTask] = useState(null);
-  const [link, setLink] = useState("");
+  const [links, setLinks] = useState({});
+
   const [loading, setLoading] = useState(true);
 
   const loadDashboard = async () => {
     try {
       const res = await api.get("/student/tasks");
+
       setTasks(res.data.tasks || []);
       setSubmissions(res.data.submissions || []);
     } catch {
@@ -33,24 +36,32 @@ const StudentDashboard = () => {
     try {
       await api.post("/auth/logout");
     } catch {}
+
     setUser(null);
     navigate("/login");
   };
 
   const submitLink = async (taskId) => {
+    const link = links[taskId];
+
     if (!link) return alert("Enter submission link");
 
-    await api.post("/student/submit", {
-      taskId,
-      contentUrl: link,
-    });
+    try {
+      await api.post("/student/submit", {
+        taskId,
+        contentUrl: link,
+      });
 
-    setLink("");
-    setActiveTask(null);
-    loadDashboard();
+      setLinks((prev) => ({ ...prev, [taskId]: "" }));
+      setActiveTask(null);
+
+      loadDashboard();
+    } catch {
+      alert("Submission failed");
+    }
   };
 
-  /* REMOVE DUPLICATES */
+  /* REMOVE DUPLICATE SUBMISSIONS */
   const uniqueSubmissions = Object.values(
     submissions.reduce((acc, sub) => {
       const id = sub.taskId?._id || sub.taskId;
@@ -66,17 +77,26 @@ const StudentDashboard = () => {
       ),
   );
 
+  const completedTasks = tasks.filter((task) =>
+    uniqueSubmissions.some((s) => String(s.taskId?._id) === String(task._id)),
+  );
+
+  const findSubmission = (taskId) =>
+    uniqueSubmissions.find((s) => String(s.taskId?._id) === String(taskId));
+
   if (loading) return <div className="p-4">Loading dashboard...</div>;
 
   return (
     <div className="p-3">
-      {/* PROFILE CARD */}
+      {/* PROFILE */}
+
       <div className="card mb-4 p-3 shadow-sm">
         <div className="d-flex justify-content-between align-items-center">
           <div>
             <h4>{user?.name}</h4>
             <p className="text-muted">{user?.email}</p>
           </div>
+
           <button className="btn btn-danger" onClick={logout}>
             Logout
           </button>
@@ -89,10 +109,12 @@ const StudentDashboard = () => {
             <p className="mb-0 text-muted">Roll Number</p>
             <b>{user?.rollNo || "—"}</b>
           </div>
+
           <div className="col-md-4">
             <p className="mb-0 text-muted">Department</p>
             <b>{user?.dept || "—"}</b>
           </div>
+
           <div className="col-md-4">
             <p className="mb-0 text-muted">Batch</p>
             <b>{user?.batch || "—"}</b>
@@ -100,92 +122,145 @@ const StudentDashboard = () => {
         </div>
       </div>
 
-      {/* MY TASKS */}
-      <h4>My Tasks</h4>
+      {/* PENDING TASKS */}
 
-      {pendingTasks.length === 0 && (
-        <p className="text-muted">No pending tasks</p>
-      )}
+      <div className="card p-3 mb-4">
+        <h5>My Tasks</h5>
 
-      {pendingTasks.map((task) => (
-        <div key={task._id} className="card mb-3 p-3">
-          <h5>{task.title}</h5>
-          <p>{task.description}</p>
+        <table className="table table-hover mt-3">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Description</th>
+              <th>Deadline</th>
+              <th>Action</th>
+            </tr>
+          </thead>
 
-          <button
-            className="btn btn-primary"
-            onClick={() => setActiveTask(task._id)}
-          >
-            Submit
-          </button>
+          <tbody>
+            {pendingTasks.map((task) => (
+              <tr key={task._id}>
+                <td>{task.title}</td>
 
-          {activeTask === task._id && (
-            <>
-              <input
-                className="form-control mt-2"
-                placeholder="Submission link"
-                value={link}
-                onChange={(e) => setLink(e.target.value)}
-              />
+                <td>{task.description}</td>
 
-              <button
-                className="btn btn-success mt-2"
-                onClick={() => submitLink(task._id)}
-              >
-                Submit Link
-              </button>
-            </>
-          )}
-        </div>
-      ))}
+                <td>{new Date(task.deadline).toLocaleString()}</td>
 
-      {/* COMPLETED */}
-      <h4 className="mt-4">Completed Tasks</h4>
+                <td>
+                  <button
+                    className="btn btn-primary btn-sm"
+                    onClick={() => setActiveTask(task._id)}
+                  >
+                    Submit
+                  </button>
 
-      {uniqueSubmissions.length === 0 && (
-        <p className="text-muted">No submissions yet</p>
-      )}
+                  {activeTask === task._id && (
+                    <div className="mt-2 d-flex gap-2">
+                      <input
+                        className="form-control form-control-sm"
+                        placeholder="Submission link"
+                        value={links[task._id] || ""}
+                        onChange={(e) =>
+                          setLinks({
+                            ...links,
+                            [task._id]: e.target.value,
+                          })
+                        }
+                      />
 
-      {uniqueSubmissions.map((sub) => (
-        <div key={sub._id} className="card mb-2 p-2">
-          <b>{sub.taskId?.title}</b>
+                      <button
+                        className="btn btn-success btn-sm"
+                        onClick={() => submitLink(task._id)}
+                      >
+                        Upload
+                      </button>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
 
-          <p>
-            Submission:{" "}
-            <a href={sub.contentUrl} target="_blank" rel="noreferrer">
-              View
-            </a>
-          </p>
+      {/* COMPLETED TASKS */}
 
-          <p>Status: {sub.status}</p>
-          <p>Marks: {sub.marks ?? "NIL"}</p>
+      <div className="card p-3">
+        <h5>Completed Tasks</h5>
 
-          <button
-            className="btn btn-warning btn-sm"
-            onClick={() => setActiveTask(sub.taskId._id)}
-          >
-            Resubmit
-          </button>
+        <table className="table table-hover mt-3">
+          <thead>
+            <tr>
+              <th>Task</th>
+              <th>Status</th>
+              <th>Marks</th>
+              <th>Remarks</th>
+              <th>Submission</th>
+              <th>Action</th>
+            </tr>
+          </thead>
 
-          {activeTask === sub.taskId._id && (
-            <>
-              <input
-                className="form-control mt-2"
-                placeholder="New submission link"
-                value={link}
-                onChange={(e) => setLink(e.target.value)}
-              />
+          <tbody>
+            {completedTasks.map((task) => {
+              const sub = findSubmission(task._id);
 
-              <button
-                className="btn btn-success mt-2"
-                onClick={() => submitLink(sub.taskId._id)}
-              >
-                Submit Again
-              </button>
-            </>
-          )}
-        </div>
-      ))}
+              return (
+                <tr key={task._id}>
+                  <td>{task.title}</td>
+
+                  <td>
+                    <span className="badge bg-secondary">
+                      {sub?.reviewStatus || sub?.status}
+                    </span>
+                  </td>
+
+                  <td>{sub?.marks ?? "-"}</td>
+
+                  <td>{sub?.remarks || "No feedback yet"}</td>
+
+                  <td>
+                    <a href={sub?.contentUrl} target="_blank" rel="noreferrer">
+                      View
+                    </a>
+                  </td>
+
+                  <td>
+                    <button
+                      className="btn btn-warning btn-sm"
+                      onClick={() => setActiveTask(task._id)}
+                    >
+                      Resubmit
+                    </button>
+
+                    {activeTask === task._id && (
+                      <div className="mt-2 d-flex gap-2">
+                        <input
+                          className="form-control form-control-sm"
+                          placeholder="New submission link"
+                          value={links[task._id] || ""}
+                          onChange={(e) =>
+                            setLinks({
+                              ...links,
+                              [task._id]: e.target.value,
+                            })
+                          }
+                        />
+
+                        <button
+                          className="btn btn-success btn-sm"
+                          onClick={() => submitLink(task._id)}
+                        >
+                          Upload
+                        </button>
+                      </div>
+                    )}
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 };

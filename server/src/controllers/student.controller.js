@@ -7,20 +7,44 @@ exports.getMyTasks = async (req, res) => {
   try {
     const student = await User.findById(req.user.id);
 
+    let roll = parseInt(student.rollNo, 10);
+    if (isNaN(roll)) roll = -1;
+
     const tasks = await Task.find({
-      $and: [
+      $or: [
+        { targetStudents: student._id },
+
         {
-          $or: [{ targetDept: { $size: 0 } }, { targetDept: student.dept }],
-        },
-        {
-          $or: [{ targetBatch: { $size: 0 } }, { targetBatch: student.batch }],
-        },
-        {
-          $or: [
-            { targetRollRange: null },
+          $and: [
             {
-              "targetRollRange.from": { $lte: Number(student.rollNo) },
-              "targetRollRange.to": { $gte: Number(student.rollNo) },
+              $or: [
+                { targetStudents: { $exists: false } },
+                { targetStudents: { $size: 0 } },
+              ],
+            },
+
+            {
+              $or: [{ targetDept: { $size: 0 } }, { targetDept: student.dept }],
+            },
+
+            {
+              $or: [
+                { targetBatch: { $size: 0 } },
+                { targetBatch: student.batch },
+              ],
+            },
+
+            {
+              $or: [
+                { targetRollRange: null },
+                { "targetRollRange.from": null },
+                {
+                  $and: [
+                    { "targetRollRange.from": { $lte: roll } },
+                    { "targetRollRange.to": { $gte: roll } },
+                  ],
+                },
+              ],
             },
           ],
         },
@@ -47,6 +71,7 @@ exports.submitTask = async (req, res) => {
     if (!task) return res.status(404).json({ message: "Task not found" });
 
     const submissionTime = new Date();
+
     let status = "ON_TIME";
 
     const deadline = new Date(task.deadline);
@@ -58,25 +83,46 @@ exports.submitTask = async (req, res) => {
       status = "VERY_LATE";
     }
 
-    // IMPORTANT: overwrite submission instead of creating new one
-    const submission = await Submission.findOneAndUpdate(
-      {
+    /* CHECK EXISTING SUBMISSION */
+
+    let submission = await Submission.findOne({
+      taskId,
+      studentId: req.user.id,
+    });
+
+    /* FIRST SUBMISSION */
+
+    if (!submission) {
+      submission = await Submission.create({
         taskId,
         studentId: req.user.id,
-      },
-      {
         contentType: "LINK",
         contentUrl,
         submissionTime,
         status,
-      },
-      {
-        new: true,
-        upsert: true,
-      },
-    );
+        reviewStatus: "SUBMITTED",
+        resubmissionCount: 0,
+      });
+    } else {
+      /* RESUBMISSION */
 
-    res.json({ message: "Submission saved", submission });
+      submission.contentUrl = contentUrl;
+      submission.submissionTime = submissionTime;
+      submission.status = status;
+
+      submission.reviewStatus = "RESUBMITTED";
+      submission.resubmissionCount += 1;
+
+      submission.marks = null;
+      submission.remarks = "";
+
+      await submission.save();
+    }
+
+    res.json({
+      message: "Submission saved",
+      submission,
+    });
   } catch (err) {
     console.log("SUBMISSION ERROR:", err);
     res.status(500).json({ message: "Submission failed" });

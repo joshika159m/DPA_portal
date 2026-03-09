@@ -8,14 +8,17 @@ const AdminDashboard = () => {
   const navigate = useNavigate();
 
   const [view, setView] = useState("STUDENTS");
+
   const [users, setUsers] = useState([]);
   const [tasks, setTasks] = useState([]);
   const [submissions, setSubmissions] = useState([]);
 
   const [dept, setDept] = useState("");
   const [batch, setBatch] = useState("");
+
   const [selectedStudent, setSelectedStudent] = useState(null);
   const [selectedFaculty, setSelectedFaculty] = useState(null);
+
   const [showAddUser, setShowAddUser] = useState(false);
 
   const [form, setForm] = useState({
@@ -26,12 +29,30 @@ const AdminDashboard = () => {
     rollNo: "",
     batch: "",
   });
+
+  const loadAdminData = async () => {
+    const res = await api.get("/admin/overview");
+    setUsers(res.data.users);
+    setTasks(res.data.tasks);
+    setSubmissions(res.data.submissions);
+  };
+
+  useEffect(() => {
+    loadAdminData();
+  }, []);
+
+  const logout = async () => {
+    await api.post("/auth/logout");
+    setUser(null);
+    navigate("/login");
+  };
+
   const createUser = async () => {
     try {
       await api.post("/admin/create-user", form);
-      alert("User created successfully (password: changeme123)");
 
-      // reset form
+      alert("User created. Password: changeme123");
+
       setForm({
         name: "",
         email: "",
@@ -41,29 +62,18 @@ const AdminDashboard = () => {
         batch: "",
       });
 
-      // refresh admin data
-      const res = await api.get("/admin/overview");
-      setUsers(res.data.users);
-      setTasks(res.data.tasks);
-      setSubmissions(res.data.submissions);
-    } catch (err) {
+      setShowAddUser(false);
+      loadAdminData();
+    } catch {
       alert("Failed to create user");
-      console.error(err);
     }
   };
 
-  useEffect(() => {
-    api.get("/admin/overview").then((res) => {
-      setUsers(res.data.users);
-      setTasks(res.data.tasks);
-      setSubmissions(res.data.submissions);
-    });
-  }, []);
+  const deleteUser = async (id) => {
+    if (!window.confirm("Delete this user?")) return;
 
-  const logout = async () => {
-    await api.post("/auth/logout");
-    setUser(null);
-    navigate("/login");
+    await api.delete(`/admin/user/${id}`);
+    loadAdminData();
   };
 
   const students = users.filter((u) => u.role === "STUDENT");
@@ -74,84 +84,111 @@ const AdminDashboard = () => {
   );
 
   return (
-    <div className="container mt-3">
-      {/* Header */}
+    <div className="container py-4">
+      {/* HEADER */}
       <div className="d-flex justify-content-between align-items-center mb-4">
         <h2>Admin Dashboard</h2>
 
-        <button
-          className="btn btn-success mb-3"
-          onClick={() => setShowAddUser(!showAddUser)}
-        >
-          {showAddUser ? "Close Add User" : "Add User"}
-        </button>
-        <button className="btn btn-danger" onClick={logout}>
-          Logout
-        </button>
-        {showAddUser && (
-          <div className="card p-3 mb-4">
-            <h5>Add New User</h5>
+        <div>
+          <button
+            className="btn btn-success me-2"
+            onClick={() => setShowAddUser(!showAddUser)}
+          >
+            Add User
+          </button>
 
-            <input
-              className="form-control mb-2"
-              placeholder="Name"
-              value={form.name}
-              onChange={(e) => setForm({ ...form, name: e.target.value })}
-            />
+          <button className="btn btn-danger" onClick={logout}>
+            Logout
+          </button>
+        </div>
+      </div>
 
-            <input
-              className="form-control mb-2"
-              placeholder="Email"
-              value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
-            />
+      {/* ADD USER CARD */}
+      {showAddUser && (
+        <div className="card p-3 mb-4">
+          <h5 className="mb-3">Create User</h5>
 
-            <select
-              className="form-control mb-2"
-              value={form.role}
-              onChange={(e) => setForm({ ...form, role: e.target.value })}
-            >
-              <option value="STUDENT">STUDENT</option>
-              <option value="FACULTY">FACULTY</option>
-              <option value="ADMIN">ADMIN</option>
-            </select>
+          <div className="row g-2">
+            <div className="col-md-3">
+              <input
+                className="form-control"
+                placeholder="Name"
+                value={form.name}
+                onChange={(e) => setForm({ ...form, name: e.target.value })}
+              />
+            </div>
 
-            <input
-              className="form-control mb-2"
-              placeholder="Department"
-              value={form.dept}
-              onChange={(e) => setForm({ ...form, dept: e.target.value })}
-            />
+            <div className="col-md-3">
+              <input
+                className="form-control"
+                placeholder="Email"
+                value={form.email}
+                onChange={(e) => setForm({ ...form, email: e.target.value })}
+              />
+            </div>
+
+            <div className="col-md-2">
+              <select
+                className="form-control"
+                value={form.role}
+                onChange={(e) => setForm({ ...form, role: e.target.value })}
+              >
+                <option value="STUDENT">Student</option>
+                <option value="FACULTY">Faculty</option>
+                <option value="ADMIN">Admin</option>
+              </select>
+            </div>
+
+            <div className="col-md-2">
+              <input
+                className="form-control"
+                placeholder="Department"
+                value={form.dept}
+                onChange={(e) => setForm({ ...form, dept: e.target.value })}
+              />
+            </div>
 
             {form.role === "STUDENT" && (
               <>
-                <input
-                  className="form-control mb-2"
-                  placeholder="Roll Number"
-                  value={form.rollNo}
-                  onChange={(e) => setForm({ ...form, rollNo: e.target.value })}
-                />
+                <div className="col-md-1">
+                  <input
+                    className="form-control"
+                    placeholder="Roll"
+                    value={form.rollNo}
+                    onChange={(e) =>
+                      setForm({ ...form, rollNo: e.target.value })
+                    }
+                  />
+                </div>
 
-                <input
-                  className="form-control mb-2"
-                  placeholder="Batch"
-                  value={form.batch}
-                  onChange={(e) => setForm({ ...form, batch: e.target.value })}
-                />
+                <div className="col-md-1">
+                  <input
+                    className="form-control"
+                    placeholder="Batch"
+                    value={form.batch}
+                    onChange={(e) =>
+                      setForm({ ...form, batch: e.target.value })
+                    }
+                  />
+                </div>
               </>
             )}
 
-            <button className="btn btn-primary" onClick={createUser}>
-              Create User
-            </button>
+            <div className="col-md-12 mt-2">
+              <button className="btn btn-primary" onClick={createUser}>
+                Create User
+              </button>
+            </div>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      {/* Toggle */}
+      {/* VIEW SWITCH */}
       <div className="mb-3">
         <button
-          className={`btn me-2 ${view === "STUDENTS" ? "btn-primary" : "btn-outline-primary"}`}
+          className={`btn me-2 ${
+            view === "STUDENTS" ? "btn-primary" : "btn-outline-primary"
+          }`}
           onClick={() => {
             setView("STUDENTS");
             setSelectedFaculty(null);
@@ -161,7 +198,9 @@ const AdminDashboard = () => {
         </button>
 
         <button
-          className={`btn ${view === "FACULTY" ? "btn-primary" : "btn-outline-primary"}`}
+          className={`btn ${
+            view === "FACULTY" ? "btn-primary" : "btn-outline-primary"
+          }`}
           onClick={() => {
             setView("FACULTY");
             setSelectedStudent(null);
@@ -171,31 +210,34 @@ const AdminDashboard = () => {
         </button>
       </div>
 
-      {/* ================= STUDENTS VIEW ================= */}
+      {/* STUDENTS VIEW */}
       {view === "STUDENTS" && (
-        <>
-          {/* Filters */}
+        <div className="card p-3">
+          <h5 className="mb-3">Students</h5>
+
+          {/* FILTERS */}
           <div className="row mb-3">
-            <div className="col">
+            <div className="col-md-3">
               <input
                 className="form-control"
-                placeholder="Filter by Department"
+                placeholder="Department"
                 value={dept}
                 onChange={(e) => setDept(e.target.value)}
               />
             </div>
-            <div className="col">
+
+            <div className="col-md-3">
               <input
                 className="form-control"
-                placeholder="Filter by Batch"
+                placeholder="Batch"
                 value={batch}
                 onChange={(e) => setBatch(e.target.value)}
               />
             </div>
           </div>
 
-          {/* Student Table */}
-          <table className="table table-bordered">
+          {/* TABLE */}
+          <table className="table table-striped table-bordered">
             <thead>
               <tr>
                 <th>Name</th>
@@ -203,14 +245,16 @@ const AdminDashboard = () => {
                 <th>Batch</th>
                 <th>Roll</th>
                 <th>Total Marks</th>
-                <th>View</th>
+                <th>Actions</th>
               </tr>
             </thead>
+
             <tbody>
               {filteredStudents.map((s) => {
                 const studentSubs = submissions.filter(
                   (sub) => sub.studentId === s._id,
                 );
+
                 const totalMarks = studentSubs.reduce(
                   (sum, sub) => sum + (sub.marks || 0),
                   0,
@@ -223,12 +267,20 @@ const AdminDashboard = () => {
                     <td>{s.batch}</td>
                     <td>{s.rollNo}</td>
                     <td>{totalMarks}</td>
+
                     <td>
                       <button
-                        className="btn btn-sm btn-info"
+                        className="btn btn-sm btn-info me-2"
                         onClick={() => setSelectedStudent(s)}
                       >
                         View
+                      </button>
+
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => deleteUser(s._id)}
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>
@@ -237,56 +289,78 @@ const AdminDashboard = () => {
             </tbody>
           </table>
 
-          {/* Student Detail */}
+          {/* STUDENT DETAILS */}
           {selectedStudent && (
             <div className="mt-4">
-              <h4>{selectedStudent.name} — Task Details</h4>
+              <h5>{selectedStudent.name} - Task Overview</h5>
 
-              {submissions
-                .filter((sub) => sub.studentId === selectedStudent._id)
-                .map((sub) => {
-                  const task = tasks.find((t) => t._id === sub.taskId);
-                  return (
-                    <div key={sub._id} className="border p-2 mb-2">
-                      <p>
-                        <b>Task:</b> {task?.title}
-                      </p>
-                      <p>Status: {sub.status}</p>
-                      <p>Marks: {sub.marks ?? "Not graded"}</p>
-                    </div>
-                  );
-                })}
+              <table className="table table-sm table-bordered mt-3">
+                <thead>
+                  <tr>
+                    <th>Task</th>
+                    <th>Status</th>
+                    <th>Marks</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {submissions
+                    .filter((s) => s.studentId === selectedStudent._id)
+                    .map((sub) => {
+                      const task = tasks.find((t) => t._id === sub.taskId);
+
+                      return (
+                        <tr key={sub._id}>
+                          <td>{task?.title}</td>
+                          <td>{sub.status}</td>
+                          <td>{sub.marks ?? "-"}</td>
+                        </tr>
+                      );
+                    })}
+                </tbody>
+              </table>
             </div>
           )}
-        </>
+        </div>
       )}
 
-      {/* ================= FACULTY VIEW ================= */}
+      {/* FACULTY VIEW */}
       {view === "FACULTY" && (
-        <>
-          <table className="table table-bordered">
+        <div className="card p-3">
+          <h5 className="mb-3">Faculty</h5>
+
+          <table className="table table-striped table-bordered">
             <thead>
               <tr>
                 <th>Name</th>
                 <th>Dept</th>
                 <th>Tasks Given</th>
-                <th>View</th>
+                <th>Actions</th>
               </tr>
             </thead>
+
             <tbody>
               {faculty.map((f) => {
                 const facultyTasks = tasks.filter((t) => t.facultyId === f._id);
+
                 return (
                   <tr key={f._id}>
                     <td>{f.name}</td>
                     <td>{f.dept}</td>
                     <td>{facultyTasks.length}</td>
+
                     <td>
                       <button
-                        className="btn btn-sm btn-info"
+                        className="btn btn-sm btn-info me-2"
                         onClick={() => setSelectedFaculty(f)}
                       >
                         View
+                      </button>
+
+                      <button
+                        className="btn btn-sm btn-danger"
+                        onClick={() => deleteUser(f._id)}
+                      >
+                        Delete
                       </button>
                     </td>
                   </tr>
@@ -295,34 +369,52 @@ const AdminDashboard = () => {
             </tbody>
           </table>
 
-          {/* Faculty Detail */}
           {selectedFaculty && (
             <div className="mt-4">
-              <h4>{selectedFaculty.name} — Tasks & Students</h4>
+              <h5>{selectedFaculty.name} - Task Distribution</h5>
 
               {tasks
                 .filter((t) => t.facultyId === selectedFaculty._id)
-                .map((task) => (
-                  <div key={task._id} className="border p-2 mb-2">
-                    <h6>{task.title}</h6>
+                .map((task) => {
+                  const taskSubs = submissions.filter(
+                    (s) => s.taskId === task._id,
+                  );
 
-                    {submissions
-                      .filter((sub) => sub.taskId === task._id)
-                      .map((sub) => {
-                        const student = students.find(
-                          (s) => s._id === sub.studentId,
-                        );
-                        return (
-                          <p key={sub._id}>
-                            {student?.name} — {sub.status} — {sub.marks ?? "NA"}
-                          </p>
-                        );
-                      })}
-                  </div>
-                ))}
+                  return (
+                    <div key={task._id} className="card p-3 mb-3">
+                      <h6>{task.title}</h6>
+
+                      <table className="table table-sm">
+                        <thead>
+                          <tr>
+                            <th>Student</th>
+                            <th>Status</th>
+                            <th>Marks</th>
+                          </tr>
+                        </thead>
+
+                        <tbody>
+                          {taskSubs.map((sub) => {
+                            const student = students.find(
+                              (s) => s._id === sub.studentId,
+                            );
+
+                            return (
+                              <tr key={sub._id}>
+                                <td>{student?.name}</td>
+                                <td>{sub.status}</td>
+                                <td>{sub.marks ?? "-"}</td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  );
+                })}
             </div>
           )}
-        </>
+        </div>
       )}
     </div>
   );

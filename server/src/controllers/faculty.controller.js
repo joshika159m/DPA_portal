@@ -4,26 +4,73 @@ const Submission = require("../models/Submission");
 /* CREATE TASK */
 exports.createTask = async (req, res) => {
   try {
-    const {
+    let {
       title,
       description,
       targetDept,
       targetBatch,
       targetRollRange,
+      selectedStudents,
       deadline,
     } = req.body;
+
+    /* -------- REQUIRED FIELD VALIDATION -------- */
+
+    if (!title || !description || !deadline) {
+      return res.status(400).json({
+        message: "Title, description and deadline are required",
+      });
+    }
+
+    /* -------- NORMALIZE INPUT -------- */
+
+    if (!Array.isArray(targetDept)) targetDept = targetDept ? [targetDept] : [];
+    if (!Array.isArray(targetBatch))
+      targetBatch = targetBatch ? [targetBatch] : [];
+    if (!Array.isArray(selectedStudents))
+      selectedStudents = selectedStudents || [];
+
+    /* -------- ROLL RANGE VALIDATION -------- */
+
+    let rollRange = null;
+
+    if (targetRollRange && targetRollRange.from && targetRollRange.to) {
+      const from = parseInt(targetRollRange.from);
+      const to = parseInt(targetRollRange.to);
+
+      if (!isNaN(from) && !isNaN(to)) {
+        rollRange = { from, to };
+      }
+    }
+
+    /* -------- TARGET CHECK -------- */
+
+    const hasDept = targetDept.length > 0;
+    const hasBatch = targetBatch.length > 0;
+    const hasRollRange = rollRange !== null;
+    const hasStudents = selectedStudents.length > 0;
+
+    if (!hasDept && !hasBatch && !hasRollRange && !hasStudents) {
+      return res.status(400).json({
+        message:
+          "Select at least one target: Department, Batch, Roll Range, or Students",
+      });
+    }
+
+    /* -------- CREATE TASK -------- */
 
     const task = await Task.create({
       title,
       description,
-      facultyId: req.user.id, // KEEP THIS
+      facultyId: req.user.id,
       targetDept,
       targetBatch,
-      targetRollRange,
+      targetRollRange: rollRange,
+      targetStudents: selectedStudents,
       deadline,
     });
 
-    res.json(task);
+    res.status(201).json(task);
   } catch (err) {
     console.error("CREATE TASK ERROR:", err);
     res.status(500).json({ message: "Failed to create task" });
@@ -45,26 +92,50 @@ exports.getTaskSubmissions = async (req, res) => {
   }
 };
 
-/* GRADE */
-exports.gradeSubmission = async (req, res) => {
+exports.reviewSubmission = async (req, res) => {
   try {
     const { submissionId } = req.params;
-    const { marks } = req.body;
+    const { remarks } = req.body;
 
-    const submission = await Submission.findByIdAndUpdate(
-      submissionId,
-      { marks },
-      { new: true },
-    );
+    const submission = await Submission.findById(submissionId);
 
     if (!submission) {
       return res.status(404).json({ message: "Submission not found" });
     }
 
+    submission.remarks = remarks;
+    submission.reviewStatus = "REVIEWED";
+
+    await submission.save();
+
     res.json(submission);
   } catch (err) {
-    console.error("GRADE ERROR:", err);
-    res.status(500).json({ message: "Failed to update marks" });
+    console.error("REVIEW ERROR:", err);
+    res.status(500).json({ message: "Failed to review submission" });
+  }
+};
+
+/* FINALIZE MARKS */
+exports.finalizeSubmission = async (req, res) => {
+  try {
+    const { submissionId } = req.params;
+    const { marks } = req.body;
+
+    const submission = await Submission.findById(submissionId);
+
+    if (!submission) {
+      return res.status(404).json({ message: "Submission not found" });
+    }
+
+    submission.marks = marks;
+    submission.reviewStatus = "FINALIZED";
+
+    await submission.save();
+
+    res.json(submission);
+  } catch (err) {
+    console.error("FINALIZE ERROR:", err);
+    res.status(500).json({ message: "Failed to finalize marks" });
   }
 };
 
@@ -100,8 +171,9 @@ exports.getStudentsByFilter = async (req, res) => {
     if (dept) filter.dept = dept;
     if (batch) filter.batch = batch;
 
-    const students = await User.find(filter).select("name rollNo dept batch");
-
+    const students = await User.find(filter)
+      .select("name rollNo dept batch")
+      .sort({ rollNo: 1 });
     res.json(students);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch students" });

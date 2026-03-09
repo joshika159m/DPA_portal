@@ -2,20 +2,42 @@ const mongoose = require("mongoose");
 
 const taskSchema = new mongoose.Schema(
   {
-    title: { type: String, required: true },
-    description: String,
+    title: { type: String, required: true, trim: true },
+
+    description: { type: String, default: "" },
+
     facultyId: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",
       required: true,
     },
-    targetDept: [String],
-    targetBatch: [String],
-    targetRollRange: {
-      from: Number,
-      to: Number,
+
+    targetDept: {
+      type: [String],
+      default: [],
     },
-    deadline: { type: Date, required: true },
+
+    targetBatch: {
+      type: [String],
+      default: [],
+    },
+
+    targetStudents: [
+      {
+        type: mongoose.Schema.Types.ObjectId,
+        ref: "User",
+      },
+    ],
+
+    targetRollRange: {
+      from: { type: Number, default: null },
+      to: { type: Number, default: null },
+    },
+
+    deadline: {
+      type: Date,
+      required: true,
+    },
   },
   { timestamps: true },
 );
