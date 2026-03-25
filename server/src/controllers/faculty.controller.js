@@ -1,5 +1,7 @@
 const Task = require("../models/Task");
 const Submission = require("../models/Submission");
+const Notification = require("../models/Notification");
+const User = require("../models/User");
 
 /* CREATE TASK */
 exports.createTask = async (req, res) => {
@@ -12,6 +14,8 @@ exports.createTask = async (req, res) => {
       targetRollRange,
       selectedStudents,
       deadline,
+      resubmissionDeadline,
+      allowResubmission,
     } = req.body;
 
     /* -------- REQUIRED FIELD VALIDATION -------- */
@@ -68,7 +72,27 @@ exports.createTask = async (req, res) => {
       targetRollRange: rollRange,
       targetStudents: selectedStudents,
       deadline,
+      resubmissionDeadline,
+      allowResubmission,
     });
+
+    /* -------- NOTIFICATION -------- */
+
+    let students = [];
+
+    if (selectedStudents.length > 0) {
+      students = await User.find({ _id: { $in: selectedStudents } });
+    } else {
+      students = await User.find({ role: "STUDENT" });
+    }
+
+    for (const student of students) {
+      await Notification.create({
+        userId: student._id,
+        message: `New Task Assigned: ${title}`,
+        type: "TASK",
+      });
+    }
 
     res.status(201).json(task);
   } catch (err) {
@@ -132,6 +156,13 @@ exports.finalizeSubmission = async (req, res) => {
 
     await submission.save();
 
+    /* SEND NOTIFICATION */
+    await Notification.create({
+      userId: submission.studentId,
+      message: "Your submission has been graded",
+      type: "GRADE",
+    });
+
     res.json(submission);
   } catch (err) {
     console.error("FINALIZE ERROR:", err);
@@ -159,8 +190,6 @@ exports.getFacultyOverview = async (req, res) => {
   }
 };
 
-const User = require("../models/User");
-
 /* GET STUDENTS BY FILTER */
 exports.getStudentsByFilter = async (req, res) => {
   try {
@@ -174,6 +203,7 @@ exports.getStudentsByFilter = async (req, res) => {
     const students = await User.find(filter)
       .select("name rollNo dept batch")
       .sort({ rollNo: 1 });
+
     res.json(students);
   } catch (err) {
     res.status(500).json({ message: "Failed to fetch students" });

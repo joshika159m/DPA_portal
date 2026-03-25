@@ -14,6 +14,7 @@ const StudentDashboard = () => {
   const [links, setLinks] = useState({});
 
   const [loading, setLoading] = useState(true);
+  const [notifications, setNotifications] = useState([]);
 
   const loadDashboard = async () => {
     try {
@@ -28,8 +29,21 @@ const StudentDashboard = () => {
     }
   };
 
+  const loadNotifications = async () => {
+    try {
+      const res = await api.get("/notifications");
+
+      const unread = res.data.filter((n) => !n.isRead);
+      setNotifications(unread);
+
+      // mark read
+      await api.put("/notifications/read-all");
+    } catch {}
+  };
+
   useEffect(() => {
     loadDashboard();
+    loadNotifications();
   }, []);
 
   const logout = async () => {
@@ -97,9 +111,13 @@ const StudentDashboard = () => {
             <p className="text-muted">{user?.email}</p>
           </div>
 
-          <button className="btn btn-danger" onClick={logout}>
-            Logout
-          </button>
+          <div>
+            <span className="me-3">🔔 {notifications.length}</span>
+
+            <button className="btn btn-danger" onClick={logout}>
+              Logout
+            </button>
+          </div>
         </div>
 
         <hr />
@@ -133,6 +151,7 @@ const StudentDashboard = () => {
               <th>Task</th>
               <th>Description</th>
               <th>Deadline</th>
+              <th>Resubmit Until</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -145,6 +164,12 @@ const StudentDashboard = () => {
                 <td>{task.description}</td>
 
                 <td>{new Date(task.deadline).toLocaleString()}</td>
+
+                <td>
+                  {task.allowResubmission
+                    ? new Date(task.resubmissionDeadline).toLocaleString()
+                    : "-"}
+                </td>
 
                 <td>
                   <button
@@ -209,7 +234,15 @@ const StudentDashboard = () => {
                   <td>{task.title}</td>
 
                   <td>
-                    <span className="badge bg-secondary">
+                    <span
+                      className={`badge ${
+                        sub?.status === "ON_TIME"
+                          ? "bg-success"
+                          : sub?.status === "RESUBMITTED"
+                            ? "bg-warning"
+                            : "bg-danger"
+                      }`}
+                    >
                       {sub?.reviewStatus || sub?.status}
                     </span>
                   </td>

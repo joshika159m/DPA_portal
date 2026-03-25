@@ -38,6 +38,17 @@ const taskSchema = new mongoose.Schema(
       type: Date,
       required: true,
     },
+
+    /* NEW FIELD */
+    resubmissionDeadline: {
+      type: Date,
+      default: null,
+    },
+
+    allowResubmission: {
+      type: Boolean,
+      default: false,
+    },
   },
   { timestamps: true },
 );

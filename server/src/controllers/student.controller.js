@@ -75,22 +75,24 @@ exports.submitTask = async (req, res) => {
     let status = "ON_TIME";
 
     const deadline = new Date(task.deadline);
-    const lateLimit = new Date(deadline.getTime() + 24 * 60 * 60 * 1000);
 
-    if (submissionTime > deadline && submissionTime <= lateLimit) {
-      status = "LATE";
-    } else if (submissionTime > lateLimit) {
+    /* RESUBMISSION LOGIC */
+    if (submissionTime <= deadline) {
+      status = "ON_TIME";
+    } else if (
+      task.allowResubmission &&
+      task.resubmissionDeadline &&
+      submissionTime <= new Date(task.resubmissionDeadline)
+    ) {
+      status = "RESUBMITTED";
+    } else {
       status = "VERY_LATE";
     }
-
-    /* CHECK EXISTING SUBMISSION */
 
     let submission = await Submission.findOne({
       taskId,
       studentId: req.user.id,
     });
-
-    /* FIRST SUBMISSION */
 
     if (!submission) {
       submission = await Submission.create({
@@ -104,8 +106,6 @@ exports.submitTask = async (req, res) => {
         resubmissionCount: 0,
       });
     } else {
-      /* RESUBMISSION */
-
       submission.contentUrl = contentUrl;
       submission.submissionTime = submissionTime;
       submission.status = status;
