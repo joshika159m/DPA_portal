@@ -19,6 +19,12 @@ app.use(express.json());
 app.use(cookieParser());
 app.use(helmet());
 app.use(mongoSanitize());
+app.use(
+  cors({
+    origin: ["http://localhost:3000", "https://your-frontend-url"],
+    credentials: true,
+  }),
+);
 
 /* ===== ROUTES ===== */
 app.use("/api/auth", require("./routes/auth.routes"));
