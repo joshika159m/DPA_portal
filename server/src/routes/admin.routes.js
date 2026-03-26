@@ -14,7 +14,7 @@ const {
   getStudentPerformance,
 } = require("../controllers/admin.controller");
 
-router.post("/create-user", auth, role("ADMIN"), createUser);
+router.post("/create-user", createUser);
 router.get("/users", auth, role("ADMIN"), getUsers);
 router.put("/block/:id", auth, role("ADMIN"), blockUser);
 router.delete("/user/:id", auth, role("ADMIN"), deleteUser);
