@@ -8,7 +8,7 @@ const app = express();
 
 app.use(
   cors({
-    origin: ["http://localhost:3000", "https://your-frontend-url"],
+    origin: ["http://localhost:3000", "https://dpa-portal-s6t8.vercel.app"],
     credentials: true,
   }),
 );
