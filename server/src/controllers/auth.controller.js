@@ -24,8 +24,8 @@ exports.login = async (req, res) => {
 
     res.cookie("token", token, {
       httpOnly: true,
-      sameSite: "lax",
-      secure: false, // 🔥 REQUIRED for localhost
+      sameSite: "none",
+      secure: true,
     });
 
     // 🔥 FIX IS HERE
